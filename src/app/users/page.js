@@ -16,45 +16,31 @@ import {
 } from "@mui/material";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useUsersStore } from "@/store/usersStore";
 
 const LIMIT = 10;
 
 export default function UsersPage() {
-  const [users, setUsers] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
+  const {
+    users,
+    total,
+    page,
+    loading,
+    fetchUsers,
+  } = useUsersStore();
 
-  // UI text vs API query (IMPORTANT FIX)
+  // UI-only state (allowed)
   const [searchText, setSearchText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [loading, setLoading] = useState(false);
-
-  const fetchUsers = async () => {
-    setLoading(true);
-    const skip = (page - 1) * LIMIT;
-
-    const url = searchQuery
-      ? `https://dummyjson.com/users/search?q=${searchQuery}`
-      : `https://dummyjson.com/users?limit=${LIMIT}&skip=${skip}`;
-
-    const res = await fetch(url);
-    const data = await res.json();
-
-    setUsers(data.users || []);
-    setTotal(data.total || 0);
-    setLoading(false);
-  };
-
   useEffect(() => {
-    fetchUsers();
+    fetchUsers({ page, search: searchQuery });
   }, [page, searchQuery]);
 
   return (
     <Paper sx={{ p: 3 }}>
       <h2>Users List</h2>
 
-      {/* Search */}
       <TextField
         label="Search users"
         fullWidth
@@ -63,7 +49,7 @@ export default function UsersPage() {
         onChange={(e) => {
           setSearchText(e.target.value);
           setSearchQuery(e.target.value);
-          setPage(1);
+          fetchUsers({ page: 1, search: e.target.value });
         }}
       />
 
@@ -94,7 +80,6 @@ export default function UsersPage() {
                 ) : (
                   users.map((user) => (
                     <TableRow key={user.id} hover>
-                      {/* Click name → fills search safely */}
                       <TableCell>
                         <span
                           style={{
@@ -106,8 +91,8 @@ export default function UsersPage() {
                             setSearchText(
                               `${user.firstName} ${user.lastName}`
                             );
-                            setSearchQuery(user.firstName); // API-safe
-                            setPage(1);
+                            setSearchQuery(user.firstName);
+                            fetchUsers({ page: 1, search: user.firstName });
                           }}
                         >
                           {user.firstName} {user.lastName}
@@ -119,7 +104,6 @@ export default function UsersPage() {
                       <TableCell>{user.phone}</TableCell>
                       <TableCell>{user.company?.name}</TableCell>
 
-                      {/* Navigation button */}
                       <TableCell align="center">
                         <Button
                           component={Link}
@@ -137,13 +121,14 @@ export default function UsersPage() {
             </Table>
           </TableContainer>
 
-          {/* Pagination only when NOT searching */}
           {!searchQuery && (
             <Pagination
               sx={{ mt: 2 }}
               count={Math.ceil(total / LIMIT)}
               page={page}
-              onChange={(e, value) => setPage(value)}
+              onChange={(e, value) =>
+                fetchUsers({ page: value, search: "" })
+              }
             />
           )}
         </>

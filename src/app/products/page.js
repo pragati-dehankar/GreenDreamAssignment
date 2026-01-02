@@ -13,64 +13,45 @@ import {
   Pagination,
   CircularProgress,
   Box,
+  Button,
 } from "@mui/material";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useProductsStore } from "@/store/productsStore";
 
 const LIMIT = 10;
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [category, setCategory] = useState("");
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const {
+    products,
+    categories,
+    total,
+    page,
+    loading,
+    fetchProducts,
+    fetchCategories,
+  } = useProductsStore();
 
-  // Fetch categories
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("");
+
   useEffect(() => {
-    fetch("https://dummyjson.com/products/categories")
-      .then((res) => res.json())
-      .then(setCategories);
+    fetchCategories();
+    fetchProducts({ page: 1 });
   }, []);
 
-  // Fetch products
-  const fetchProducts = async () => {
-    setLoading(true);
-    const skip = (page - 1) * LIMIT;
-
-    let url = `https://dummyjson.com/products?limit=${LIMIT}&skip=${skip}`;
-
-    if (search) {
-      url = `https://dummyjson.com/products/search?q=${search}`;
-    }
-
-    if (category) {
-      url = `https://dummyjson.com/products/category/${category}`;
-    }
-
-    const res = await fetch(url);
-    const data = await res.json();
-
-    setProducts(data.products || []);
-    setTotal(data.total || 0);
-    setLoading(false);
-  };
-
   useEffect(() => {
-    fetchProducts();
+    fetchProducts({ page, search, category });
   }, [page, search, category]);
 
   return (
     <Box p={3}>
-      <Typography variant="h5" mb={2}>
+      <Typography variant="h5" mb={3} textAlign="center">
         Products List
       </Typography>
 
-      {/* Filters */}
-      <Grid container spacing={2} mb={3}>
-        <Grid item xs={12} md={4}>
+      <Grid container spacing={2} mb={4} justifyContent="center">
+        <Grid item xs={12} sm={6} md={4}>
           <TextField
             label="Search products"
             fullWidth
@@ -78,12 +59,12 @@ export default function ProductsPage() {
             onChange={(e) => {
               setSearch(e.target.value);
               setCategory("");
-              setPage(1);
+              fetchProducts({ page: 1, search: e.target.value });
             }}
           />
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <Select
             fullWidth
             displayEmpty
@@ -91,63 +72,86 @@ export default function ProductsPage() {
             onChange={(e) => {
               setCategory(e.target.value);
               setSearch("");
-              setPage(1);
+              fetchProducts({ page: 1, category: e.target.value });
             }}
           >
             <MenuItem value="">All Categories</MenuItem>
             {categories.map((cat) => (
-              <MenuItem key={cat} value={cat}>
-                {cat}
+              <MenuItem key={cat.slug} value={cat.slug}>
+                {cat.name}
               </MenuItem>
             ))}
           </Select>
         </Grid>
       </Grid>
 
-      {/* Products Grid */}
       {loading ? (
-        <CircularProgress />
+        <Box display="flex" justifyContent="center">
+          <CircularProgress />
+        </Box>
       ) : (
         <>
-          <Grid container spacing={3}>
+          <Grid container spacing={4} justifyContent="center">
             {products.map((product) => (
-              <Grid item xs={12} sm={6} md={4} key={product.id}>
-                <Card>
+              <Grid item key={product.id} xs={12} sm={6} md={4} lg={3}>
+                <Card
+                  sx={{
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    textAlign: "center",
+                  }}
+                >
                   <CardMedia
                     component="img"
-                    height="160"
+                    height="180"
                     image={product.thumbnail}
                     alt={product.title}
                   />
-                  <CardContent>
+
+                  <CardContent sx={{ flexGrow: 1 }}>
                     <Typography fontWeight="bold">
                       {product.title}
                     </Typography>
-                    <Typography>₹ {product.price}</Typography>
-                    <Typography variant="body2">
-                      Category: {product.category}
-                    </Typography>
-                    <Typography variant="body2">
-                      Rating: ⭐ {product.rating}
+
+                    <Typography color="primary" fontWeight="bold">
+                      ₹ {product.price}
                     </Typography>
 
-                    <Link href={`/products/${product.id}`}>
-                      View Details →
-                    </Link>
+                    <Typography variant="body2">
+                      {product.category}
+                    </Typography>
+
+                    <Typography variant="body2">
+                      ⭐ {product.rating}
+                    </Typography>
                   </CardContent>
+
+                  <Box pb={2}>
+                    <Button
+                      component={Link}
+                      href={`/products/${product.id}`}
+                      variant="contained"
+                      size="small"
+                    >
+                      View Details
+                    </Button>
+                  </Box>
                 </Card>
               </Grid>
             ))}
           </Grid>
 
-          {/* Pagination */}
           {!search && !category && (
-            <Pagination
-              sx={{ mt: 4 }}
-              count={Math.ceil(total / LIMIT)}
-              page={page}
-              onChange={(e, value) => setPage(value)}
-            />
+            <Box mt={5} display="flex" justifyContent="center">
+              <Pagination
+                count={Math.ceil(total / LIMIT)}
+                page={page}
+                onChange={(e, value) =>
+                  fetchProducts({ page: value })
+                }
+              />
+            </Box>
           )}
         </>
       )}
